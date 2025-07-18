@@ -1,31 +1,85 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <title>Fiber KML Map</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style> #map { height: 100vh; margin:0; } </style>
+    <meta charset="utf-8" />
+    <title>Fiber GeoJSON Map with Address Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
+
 <body>
-  <div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+    <div id="map"></div>
 
-  <script>
-    var map = L.map('map').setView([0, 0], 2);
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    <!-- Leaflet Control Geocoder -->
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
-    // Load KML from same repo directory
-    omnivore.kml('Fiber_Dist_Buffer_600.kml')
-      .on('ready', function() {
-        map.fitBounds(this.getBounds());
-      })
-      .addTo(map);
-  </script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([39.07, -78.98], 13);
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Load GeoJSON data
+        fetch('Fiber_Dist_Buffer_600.json')
+            .then(response => {
+                if (!response.ok) throw new Error("GeoJSON file not found or unreadable.");
+                return response.json();
+            })
+            .then(geojson => {
+                const layer = L.geoJSON(geojson, {
+                    style: {
+                        color: "#FF6600",
+                        weight: 2,
+                        fillOpacity: 0.4
+                    },
+                    onEachFeature: function (feature, layer) {
+                        layer.bindPopup("HardyNet Service Area");
+                    }
+
+                }).addTo(map);
+
+                map.fitBounds(layer.getBounds());
+            })
+            .catch(error => {
+                console.error('Error loading GeoJSON:', error);
+                alert('Failed to load GeoJSON file.');
+            });
+
+        // Add geocoder (address search box)
+        const geocoder = L.Control.geocoder({
+            defaultMarkGeocode: false,
+            collapsed: false  // <-- always show the search box expanded
+        })
+            .on('markgeocode', function (e) {
+                const bbox = e.geocode.bbox;
+                const marker = L.marker(e.geocode.center).addTo(map);
+                marker.bindPopup(e.geocode.name).openPopup();
+                map.fitBounds(bbox);
+            })
+            .addTo(map);
+    </script>
+
 </body>
+
 </html>
