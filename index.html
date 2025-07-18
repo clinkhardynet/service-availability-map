@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Fiber GeoJSON Map with Address Search</title>
+    <title>HardyNet Service Availability Map</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Leaflet CSS -->
@@ -17,6 +17,155 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            font-family: Arial, sans-serif;
+            /* Prevent horizontal scroll */
+            overflow-x: hidden;
+        }
+
+        /* Container for toggles and geocoder */
+        #controls-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1300;
+            width: 400px;
+            max-width: 90vw;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: transparent;
+            user-select: none;
+        }
+
+        /* Toggle buttons container */
+        #layer-toggle {
+            display: flex;
+            justify-content: center;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
+            overflow: hidden;
+        }
+
+        #layer-toggle button {
+            flex: 1;
+            padding: 10px 0;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+            outline: none;
+            transition: background-color 0.3s, color 0.3s;
+            box-sizing: border-box;
+        }
+
+        #layer-toggle button:first-child {
+            border-radius: 6px 0 0 6px;
+            border-right: 1px solid #ccc;
+        }
+
+        #layer-toggle button:last-child {
+            border-radius: 0 6px 6px 0;
+        }
+
+        #layer-toggle button.active {
+            background-color: #0078A8;
+            color: white;
+            cursor: default;
+        }
+
+        #layer-toggle button:not(.active):hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Geocoder container override */
+        .leaflet-control-geocoder {
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            transform: none !important;
+            width: 100% !important;
+            max-width: none !important;
+            box-sizing: border-box;
+            background: white !important;
+            border-radius: 6px !important;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65) !important;
+            z-index: 1300 !important;
+        }
+
+        /* Responsive design for mobile */
+        @media (max-width: 480px) {
+            #controls-container {
+                position: fixed;
+                top: 10px;
+                left: 0;
+                right: 0;
+                max-width: 280px;
+                width: 100%;
+                margin: 0 auto;
+                padding: 0 8px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                background: transparent;
+                user-select: none;
+                transform: none;
+            }
+
+            #layer-toggle {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                border-radius: 6px;
+                overflow: hidden;
+            }
+
+            #layer-toggle button {
+                padding: 8px 0;
+                font-size: 14px;
+                flex: 1;
+                border: none !important;
+                margin: 0 !important;
+                box-sizing: border-box;
+            }
+
+            .leaflet-control-geocoder {
+                width: 100% !important;
+                margin: 0 0 10px 0 !important;
+                box-sizing: border-box;
+            }
+
+            .leaflet-control-geocoder form {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 6px;
+                padding: 4px 8px !important;
+                box-sizing: border-box;
+            }
+
+            .leaflet-control-geocoder .leaflet-control-geocoder-input {
+                flex-grow: 1;
+                height: 32px !important;
+                padding: 4px 8px !important;
+                font-size: 14px !important;
+                line-height: normal !important;
+            }
+
+            .leaflet-control-geocoder .leaflet-control-geocoder-icon {
+                width: 24px !important;
+                height: 24px !important;
+                flex-shrink: 0;
+            }
+        }
+
+        .leaflet-bar {
+            display: flex;
         }
     </style>
 </head>
@@ -25,6 +174,15 @@
 
     <div id="map"></div>
 
+    <!-- Controls container for toggles and geocoder -->
+    <div id="controls-container">
+        <div id="layer-toggle">
+            <button id="btn-standard" class="active">Standard</button>
+            <button id="btn-satellite">Satellite</button>
+        </div>
+        <!-- The geocoder control will be placed here -->
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -32,15 +190,36 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        // Initialize map
-        const map = L.map('map').setView([39.07, -78.98], 13);
-
-        // Add OpenStreetMap tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Define base layers
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
+        });
+
+        const esriSatLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 19
+        });
+
+        const labelsOverlay = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_only_labels/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors, &copy; CARTO',
+            maxZoom: 19,
+            opacity: 0.7
+        });
+
+        // Initialize map with Standard base layer by default
+        const map = L.map('map', {
+            center: [39.07, -78.98],
+            zoom: 13,
+            layers: [osmLayer],
+            zoomControl: false
+        });
+
+        // Add zoom control manually at bottom right
+        L.control.zoom({
+            position: 'bottomright'
         }).addTo(map);
 
-        // Load GeoJSON data
+        // Load GeoJSON data and add to map
         fetch('Fiber_Dist_Buffer_600.json')
             .then(response => {
                 if (!response.ok) throw new Error("GeoJSON file not found or unreadable.");
@@ -49,14 +228,13 @@
             .then(geojson => {
                 const layer = L.geoJSON(geojson, {
                     style: {
-                        color: "#FF6600",
+                        color: "#0000FF",
                         weight: 2,
-                        fillOpacity: 0.4
+                        fillOpacity: 0.25
                     },
                     onEachFeature: function (feature, layer) {
                         layer.bindPopup("HardyNet Service Area");
                     }
-
                 }).addTo(map);
 
                 map.fitBounds(layer.getBounds());
@@ -66,18 +244,51 @@
                 alert('Failed to load GeoJSON file.');
             });
 
-        // Add geocoder (address search box)
+        // Add geocoder (address search box) inside controls-container
         const geocoder = L.Control.geocoder({
             defaultMarkGeocode: false,
-            collapsed: false  // <-- always show the search box expanded
+            collapsed: false
         })
             .on('markgeocode', function (e) {
                 const bbox = e.geocode.bbox;
                 const marker = L.marker(e.geocode.center).addTo(map);
                 marker.bindPopup(e.geocode.name).openPopup();
                 map.fitBounds(bbox);
-            })
-            .addTo(map);
+            });
+
+        geocoder.addTo(map);
+
+        // Move geocoder control DOM element inside our controls container, below toggles
+        const geocoderEl = document.querySelector('.leaflet-control-geocoder');
+        const controlsContainer = document.getElementById('controls-container');
+        controlsContainer.appendChild(geocoderEl);
+
+        // Buttons for toggling base layers
+        const btnStandard = document.getElementById('btn-standard');
+        const btnSatellite = document.getElementById('btn-satellite');
+
+        function setBaseLayer(layerName) {
+            if (layerName === 'Standard') {
+                if (map.hasLayer(esriSatLayer)) map.removeLayer(esriSatLayer);
+                if (map.hasLayer(labelsOverlay)) map.removeLayer(labelsOverlay);
+                if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer);
+                btnStandard.classList.add('active');
+                btnSatellite.classList.remove('active');
+            } else if (layerName === 'Satellite') {
+                if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+                if (!map.hasLayer(esriSatLayer)) map.addLayer(esriSatLayer);
+                if (!map.hasLayer(labelsOverlay)) map.addLayer(labelsOverlay);
+                btnSatellite.classList.add('active');
+                btnStandard.classList.remove('active');
+            }
+        }
+
+        // Initial layer
+        setBaseLayer('Standard');
+
+        // Button event listeners
+        btnStandard.addEventListener('click', () => setBaseLayer('Standard'));
+        btnSatellite.addEventListener('click', () => setBaseLayer('Satellite'));
     </script>
 
 </body>
