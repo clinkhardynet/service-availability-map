@@ -167,7 +167,7 @@
                 line-height: normal !important;
             }
 
-            
+
 
             .leaflet-control-geocoder .leaflet-control-geocoder-icon {
                 width: 24px !important;
@@ -274,17 +274,28 @@
                 alert('Failed to load GeoJSON file.');
             });
 
+        const homeIcon = L.icon({
+            iconUrl: 'house-pin.png',
+            iconSize: [31.4545454545, 42.7272727273],      
+            iconAnchor: [16, 32],     
+            popupAnchor: [0, -32]     
+        });
+
         // Add geocoder (address search box) inside controls-container
         const geocoder = L.Control.geocoder({
             defaultMarkGeocode: false,
             collapsed: false
-        })
-            .on('markgeocode', function (e) {
-                const bbox = e.geocode.bbox;
-                const marker = L.marker(e.geocode.center).addTo(map);
-                marker.bindPopup(e.geocode.name).openPopup();
-                map.fitBounds(bbox);
-            });
+        });
+        let activeGeocoderMarker = null;
+        geocoder.on('markgeocode', function (e) {
+            const bbox = e.geocode.bbox;
+            if (activeGeocoderMarker) {
+                map.removeLayer(activeGeocoderMarker);
+            }
+            activeGeocoderMarker = L.marker(e.geocode.center, {icon: homeIcon}).addTo(map);
+            activeGeocoderMarker.bindPopup(e.geocode.name).openPopup();
+            map.fitBounds(bbox);
+        });
 
         geocoder.addTo(map);
 
