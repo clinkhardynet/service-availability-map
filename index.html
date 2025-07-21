@@ -6,6 +6,8 @@
     <title>HardyNet Service Availability Map</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <link rel="icon" type="image/x-icon" href="favicon.png">
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
@@ -167,11 +169,25 @@
         .leaflet-bar {
             display: flex;
         }
-        
+
         .leaflet-attribution-flag {
             display: none !important;
         }
 
+        #logo-container {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1300;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        #logo-container img {
+            width: 300px;
+            height: auto;
+            max-width: 35vw;
+        }
     </style>
 </head>
 
@@ -185,7 +201,6 @@
             <button id="btn-standard" class="active">Standard</button>
             <button id="btn-satellite">Satellite</button>
         </div>
-        <!-- The geocoder control will be placed here -->
     </div>
 
     <!-- Leaflet JS -->
@@ -263,6 +278,17 @@
 
         geocoder.addTo(map);
 
+        // Update the search placeholder to be better
+        setTimeout(() => {
+            const geocoderEl = document.querySelector('.leaflet-control-geocoder');
+            const controlsContainer = document.getElementById('controls-container');
+            controlsContainer.appendChild(geocoderEl);
+            const geocoderInput = geocoderEl.querySelector('.leaflet-control-geocoder-form input');
+            if (geocoderInput) {
+                geocoderInput.placeholder = "Search address...";
+            }
+        }, 0);
+
         // Move geocoder control DOM element inside our controls container, below toggles
         const geocoderEl = document.querySelector('.leaflet-control-geocoder');
         const controlsContainer = document.getElementById('controls-container');
@@ -295,6 +321,10 @@
         btnStandard.addEventListener('click', () => setBaseLayer('Standard'));
         btnSatellite.addEventListener('click', () => setBaseLayer('Satellite'));
     </script>
+
+    <div id="logo-container">
+        <img src="logo.png" alt="Logo" />
+    </div>
 
 </body>
 
